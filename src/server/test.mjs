@@ -3,8 +3,17 @@ import {
   ScanCommand,
   GetItemCommand,
 } from '@aws-sdk/client-dynamodb'
+import dotenv from 'dotenv'
+dotenv.config()
+
 const table_name = 'YankPasteTable'
-const dbClient = new DynamoDBClient({ region: 'us-east-1' })
+const dbClient = new DynamoDBClient({
+  region: 'us-east-1',
+  credential: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+})
 
 async function getDynamoDBKeys() {
   const params = {
@@ -32,4 +41,5 @@ async function getItemByPartitionKey(partitionKey) {
 }
 
 const a = await getDynamoDBKeys()
+console.log(a)
 // const b = await getItemByPartitionKey(a[1])
