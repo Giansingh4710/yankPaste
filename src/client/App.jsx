@@ -17,14 +17,12 @@ function App() {
       method: 'GET',
     })
       .then((res) => {
-        console.log(res.data.rows)
         setList(res.data.rows)
         setText(res.data.rows[0].text.S)
         currItem.current = res.data.rows[0]
       })
       .catch((err) => {
-        console.log('No text found in DB')
-        console.log(err.response.data.message)
+        alert(err.response.data.message)
       })
   }, [])
 
@@ -70,7 +68,7 @@ function App() {
       .then((clipText) => setText(clipText))
       .catch((err) => {
         console.log(err)
-        alert('Failed to paste text')
+        alert(err.response.data.message)
       })
   }
 

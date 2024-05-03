@@ -1,7 +1,8 @@
-made using. This makes full stack, scr/client is the front end and scr/server is the backend. 
+Made using
 ```
 npm create vite-express
 ```
+This makes full stack app creating scr/client and scr/server directories
 
 ### How I set up aws ec2 setup:
 - Create an EC2 instance (Ubuntu)
@@ -65,5 +66,6 @@ npm create vite-express
 - ```sudo ufw delete allow 'Nginx HTTP'```
 - ```sudo ufw status``` (will have 'Nginx Full' now instead of 'Nginx HTTP')
 
-
 Following [this youtube video](https://www.youtube.com/watch?v=bBA2yCnEf68)
+
+(Note: You might have to use 'sudo' before some commands when in proteced directories like /var/www/ )
