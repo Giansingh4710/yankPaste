@@ -11,8 +11,6 @@ npm create vite-express
 - Followed from [this](https://www.freecodecamp.org/news/how-to-connect-a-domain-to-a-website-hosted-on-aws-ec2/)
 
 ### How to Setup node server to work:
-- Followed from [this](https://www.digitalocean.com/community/tutorials/how-to-set-up-a-node-js-application-for-production-on-ubuntu-20-04)
-- Following [this youtube video](https://www.youtube.com/watch?v=bBA2yCnEf68)
 - login to the server
 - ```sudo apt update && sudo apt upgrade```
 - ```
@@ -51,4 +49,21 @@ npm create vite-express
     - ```sudo nginx -t``` to check if syntax is correct
     - ```sudo nginx -s reload``` to reload nginx
 - At this point, if you clone repo into `/var/www/yankpaste.com` and do 'sudo npm run dev', yankpaste.xyz should work(http only)
+- ```sudo npm install pm2@latest -g``` keep server in background
+- ```sudo pm2 startup systemd``` (it will give you a command to run. Run it. Command for me is below)
+    ```sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu```
+- ```pm2 start npm --name yankPaste -- start```
+    - ```pm2 kill``` (will kill the server if needed)
+- ```pm2 save``` (when pm2 restarts, it will start the server again)
 
+### How to setup https
+- ```sudo ufw allow 'Nginx Full'```
+- ```sudo apt install certbot python3-certbot-nginx```
+- ```sudo certbot --nginx -d yankpaste.xyz -d www.yankpaste.xyz```
+<!-- - ```sudo certbot renew --dry-run``` (to check if it works) -->
+- ```sudo systemctl status certbot.timer``` (to check if it is working)
+- ```sudo ufw delete allow 'Nginx HTTP'```
+- ```sudo ufw status``` (will have 'Nginx Full' now instead of 'Nginx HTTP')
+
+
+Following [this youtube video](https://www.youtube.com/watch?v=bBA2yCnEf68)
