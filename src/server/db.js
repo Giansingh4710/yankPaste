@@ -3,6 +3,7 @@ import {
   GetItemCommand,
   PutItemCommand,
   ScanCommand,
+  DeleteItemCommand,
 } from '@aws-sdk/client-dynamodb'
 import dotenv from 'dotenv'
 
@@ -63,4 +64,22 @@ async function getDynamoDBItems() {
   return res.Items
 }
 
-export { getDynamoDBItems, saveTextToDB }
+async function deleteFromDB(partitionKey) {
+  const params = {
+    TableName: table_name,
+    Key: {
+      UnixTime: { N: partitionKey }, // Assuming UnixTime is the partition key
+    },
+  };
+
+  const command = new DeleteItemCommand(params);
+  try {
+    await dbClient.send(command);
+    console.log(`Item with UnixTime ${partitionKey} deleted successfully`);
+  } catch (error) {
+    console.error(`Error deleting item with UnixTime ${partitionKey}:`, error);
+    throw new Error('Failed to delete item from DB');
+  }
+}
+
+export { getDynamoDBItems, saveTextToDB, deleteFromDB };

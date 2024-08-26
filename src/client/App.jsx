@@ -1,6 +1,6 @@
 import { Button } from 'flowbite-react'
 import { Label, Table, Textarea } from 'flowbite-react'
-import { FaPaste, FaRegCopy, FaSave, FaTimesCircle } from 'react-icons/fa'
+import { FaPaste, FaRegCopy, FaSave, FaTimesCircle, FaTrash } from 'react-icons/fa'
 import { useEffect, useRef, useState } from 'react'
 import { ButtonLabel, CenteredDiv } from './helperComps'
 import { displayHistoryText } from './helperFuncs'
@@ -72,6 +72,30 @@ function App() {
       })
   }
 
+  function deleteText(){
+    const unixTime = currItem.current.UnixTime.N
+
+    if (!confirm('Are you sure you want to DELETE this text?')) {
+      return
+    }
+    axios({
+      url: '/delete',
+      method: 'DELETE',
+      data: { unixTime: unixTime },
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => {
+        alert(res.data.message)
+        window.location.reload()
+      })
+      .catch((err) => {
+        console.log()
+        alert(err.response.data.message)
+      })
+  }
+
+  // useEffect(()=>console.log(currItem.current.UnixTime.N))
+
   return (
     <div className='flex flex-col pt-5 items-center'>
       <h1 className='text-3xl font-bold text-white'>Welcome to Yank Paste</h1>
@@ -82,7 +106,9 @@ function App() {
           <ButtonLabel text='Save' Icon={FaSave} action={saveText} />
           <ButtonLabel text='Clear' Icon={FaTimesCircle} action={clearText} />
           <ButtonLabel text='Copy' Icon={FaRegCopy} action={copyText} />
+          <ButtonLabel text='Delete' Icon={FaTrash} action={deleteText} />
         </div>
+        {/* <h1>{currItem?.current?.UnixTime.N}</h1> */}
         <History setText={setText} list={list} currItem={currItem} />
       </div>
     </div>
@@ -102,7 +128,10 @@ function History({ setText, list, currItem }) {
           </Table.Head>
           <Table.Body className='divide-y'>
             {list.map((item, idx) => (
-              <Table.Row className='bg-white' onClick={() => setText(item.text.S)}>
+              <Table.Row key={idx} className='bg-white' onClick={() => {
+                setText(item.text.S)
+                currItem.current =  item
+              }}>
                 <Table.Cell>{list.length - idx}</Table.Cell>
                 <Table.Cell>
                   {new Date(parseInt(item.UnixTime.N)).toLocaleString()}

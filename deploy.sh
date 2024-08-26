@@ -1,16 +1,23 @@
 #!/usr/bin/bash
 
+function exitIfError {
+  if [ $? -ne 0 ]; then
+    echo "$1"
+    exit 1
+  fi
+}
+
+git pull
+exitIfError "git pull failed"
+
 npm i
-if [ $? -ne 0 ]; then
-  echo "npm install failed"
-  exit 1
-fi
-pm2 kill
+exitIfError "npm install failed"
+
 npm run build
-if [ $? -ne 0 ]; then
-  echo "npm run build failed"
-  exit 1
-fi
+exitIfError "npm run build failed"
+
+pm2 kill
+exitIfError "pm2 kill failed"
 
 pm2 start npm --name yankPaste -- start
 pm2 save
