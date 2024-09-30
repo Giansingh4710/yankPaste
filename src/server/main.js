@@ -1,7 +1,7 @@
 import express from "express";
 import ViteExpress from "vite-express";
 import bodyParser from "body-parser";
-import { getDynamoDBItems, saveTextToDB, deleteFromDB } from "./db.js";
+import { getFiles, saveTextToDB, deleteFile } from "./db.js";
 
 const app = express(); // to get POST requests data
 app.use(bodyParser.json({ limit: "50mb" }));
@@ -11,9 +11,9 @@ app.get("/api/test", (req, res) => {
   res.send("Hello Vite + React from server!");
 });
 
-app.get("/saveUrlText", async (req, res) => {
+app.get("/saveUrlText", (req, res) => {
   try {
-    await saveTextToDB(req.query.text, "GET");
+    saveTextToDB(req.query.text);
     res.json({ message: "Text saved in Database!" });
   } catch (error) {
     res.status(500);
@@ -22,9 +22,9 @@ app.get("/saveUrlText", async (req, res) => {
   }
 });
 
-app.post("/saveText", async (req, res) => {
+app.post("/saveText", (req, res) => {
   try {
-    await saveTextToDB(req.body.text, "POST");
+    saveTextToDB(req.body.text);
     res.json({ message: "Text saved in DB!" });
   } catch (error) {
     res.status(500);
@@ -33,9 +33,9 @@ app.post("/saveText", async (req, res) => {
   }
 });
 
-app.get("/getRows", async (req, res) => {
+app.get("/getTexts", (req, res) => {
   try {
-    const rows = await getDynamoDBItems();
+    const rows = getFiles();
     res.json({ rows });
   } catch (error) {
     res.status(500);
@@ -44,16 +44,16 @@ app.get("/getRows", async (req, res) => {
   }
 });
 
-app.delete("/delete", async (req, res) => {
+app.delete("/delete", (req, res) => {
   try {
-    console.log(req.data)
+    console.log(req.data);
     const { unixTime } = req.body;
     if (!unixTime) {
       res.status(400).json({ message: "Key(unixTime) is required" });
       return;
     }
 
-    await deleteFromDB(unixTime);
+    deleteFile(unixTime);
     res.json({ message: "Item deleted successfully" });
   } catch (error) {
     res.status(500);

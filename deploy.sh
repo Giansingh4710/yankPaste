@@ -16,8 +16,7 @@ exitIfError "npm install failed"
 npm run build
 exitIfError "npm run build failed"
 
-pm2 kill
-exitIfError "pm2 kill failed"
-
+pm2 delete yankPaste
 pm2 start npm --name yankPaste -- start
+exitIfError "error with pm2"
 pm2 save

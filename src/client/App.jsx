@@ -13,12 +13,12 @@ function App() {
 
   useEffect(() => {
     axios({
-      url: '/getRows',
+      url: '/getTexts',
       method: 'GET',
     })
       .then((res) => {
         setList(res.data.rows)
-        setText(res.data.rows[0].text.S)
+        setText(res.data.rows[0].text)
         currItem.current = res.data.rows[0]
       })
       .catch((err) => {
@@ -34,10 +34,15 @@ function App() {
     if (!confirm('Are you sure you want to save this text?')) {
       return
     }
-    if (currItem.current && currItem.current.text.S === text) {
+    if (text === '') {
+      alert('No text to save!')
+      return
+    }
+    if (currItem.current && currItem.current.text === text) {
       alert('Text already saved (no changes made)')
       return
     }
+
     axios({
       url: '/saveText',
       method: 'POST',
@@ -73,7 +78,7 @@ function App() {
   }
 
   function deleteText(){
-    const unixTime = currItem.current.UnixTime.N
+    const unixTime = currItem.current.unixTime
 
     if (!confirm('Are you sure you want to DELETE this text?')) {
       return
@@ -94,8 +99,6 @@ function App() {
       })
   }
 
-  // useEffect(()=>console.log(currItem.current.UnixTime.N))
-
   return (
     <div className='flex flex-col pt-5 items-center'>
       <h1 className='text-3xl font-bold text-white'>Welcome to Yank Paste</h1>
@@ -108,7 +111,6 @@ function App() {
           <ButtonLabel text='Copy' Icon={FaRegCopy} action={copyText} />
           <ButtonLabel text='Delete' Icon={FaTrash} action={deleteText} />
         </div>
-        {/* <h1>{currItem?.current?.UnixTime.N}</h1> */}
         <History setText={setText} list={list} currItem={currItem} />
       </div>
     </div>
@@ -129,14 +131,14 @@ function History({ setText, list, currItem }) {
           <Table.Body className='divide-y'>
             {list.map((item, idx) => (
               <Table.Row key={idx} className='bg-white' onClick={() => {
-                setText(item.text.S)
+                setText(item.text)
                 currItem.current =  item
               }}>
                 <Table.Cell>{list.length - idx}</Table.Cell>
                 <Table.Cell>
-                  {new Date(parseInt(item.UnixTime.N)).toLocaleString()}
+                  {new Date(parseInt(item.unixTime)).toLocaleString()}
                 </Table.Cell>
-                <Table.Cell>{displayHistoryText(item.text.S)}</Table.Cell>
+                <Table.Cell>{displayHistoryText(item.text)}</Table.Cell>
               </Table.Row>
             ))}
           </Table.Body>

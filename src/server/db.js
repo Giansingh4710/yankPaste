@@ -1,85 +1,55 @@
-import {
-  DynamoDBClient,
-  GetItemCommand,
-  PutItemCommand,
-  ScanCommand,
-  DeleteItemCommand,
-} from '@aws-sdk/client-dynamodb'
-import dotenv from 'dotenv'
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-dotenv.config()
-const table_name = 'YankPasteTable'
-const dbClient = new DynamoDBClient({
-  region: 'us-east-1',
-  credential: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-})
-
-async function getLastText() {
-  const keys = await getDynamoDBItems()
-  const lastKey = keys[keys.length - 1]
-  const item = await getItemByPartitionKey(lastKey)
-  return item
-}
-
-async function getItemByPartitionKey(partitionKey) {
-  const params = {
-    TableName: table_name,
-    Key: {
-      UnixTime: { N: partitionKey },
-    },
+const dir_of_texts = "./pasted_text/";
+// Function to save text as a file
+function saveTextToDB(text) {
+  const fileName = Date.now().toString() + ".txt";
+  const theTextFiles = fs
+    .readdirSync(dir_of_texts)
+    .filter((file) => path.extname(file) === ".txt")
+    .sort();
+  const fileCount = theTextFiles.length;
+  if (fileCount >= 10) {
+    deleteFile(path.parse(theTextFiles[0]).name);
   }
-  const command = new GetItemCommand(params)
-  const res = await dbClient.send(command)
-  if (!res.Item) throw new Error('Item not found')
-  return res.Item
-}
-
-async function saveTextToDB(text, type) {
-  if (!text) throw new Error('No text to save!')
-  const db_params = {
-    TableName: table_name,
-    Item: {
-      UnixTime: { N: Date.now().toString() },
-      text: { S: text },
-      from: { S: type },
-    },
-  }
-  const db_command = new PutItemCommand(db_params)
-  await dbClient.send(db_command)
-}
-
-async function getDynamoDBItems() {
-  const params = {
-    TableName: table_name,
-    // ProjectionExpression: 'UnixTime',
-  }
-  const command = new ScanCommand(params)
-  const res = await dbClient.send(command)
-  if (!res.Items) throw new Error('No items found')
-  // console.log(res.Items.map((a) => a.UnixTime.N))
-  res.Items.sort((a, b) => b.UnixTime.N - a.UnixTime.N) // last item first
-  return res.Items
-}
-
-async function deleteFromDB(partitionKey) {
-  const params = {
-    TableName: table_name,
-    Key: {
-      UnixTime: { N: partitionKey }, // Assuming UnixTime is the partition key
-    },
-  };
-
-  const command = new DeleteItemCommand(params);
   try {
-    await dbClient.send(command);
-    console.log(`Item with UnixTime ${partitionKey} deleted successfully`);
-  } catch (error) {
-    console.error(`Error deleting item with UnixTime ${partitionKey}:`, error);
-    throw new Error('Failed to delete item from DB');
+    fs.writeFileSync(path.join(dir_of_texts, fileName), text); // Sync file write
+  } catch (err) {
+    console.error(err);
   }
 }
 
-export { getDynamoDBItems, saveTextToDB, deleteFromDB };
+function getFiles() {
+  const files = [];
+  try {
+    fs.readdirSync(dir_of_texts)
+      .filter((file) => path.extname(file) === ".txt")
+      .sort()
+      .reverse()
+      .forEach((file) => {
+        files.push({
+          unixTime: path.parse(file).name, // Get the file name without extension
+          text: fs.readFileSync(path.join(dir_of_texts, file), {
+            encoding: "utf8",
+          }),
+        });
+      });
+  } catch (err) {
+    console.error("Error reading files:", err);
+  }
+
+  return files;
+}
+
+// Function to delete a file based on its name (unixTime)
+function deleteFile(unixTime) {
+  const filePath = path.join(dir_of_texts, unixTime + ".txt");
+  try {
+    fs.unlinkSync(filePath); // Sync file delete
+  } catch (err) {
+    console.error("Error deleting file:", err);
+  }
+}
+
+export { getFiles, saveTextToDB, deleteFile };
