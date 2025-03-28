@@ -1,7 +1,16 @@
 import express from "express";
 import ViteExpress from "vite-express";
 import bodyParser from "body-parser";
-import { getFiles, saveTextToDB, deleteFile } from "./db.js";
+import { getTexts, saveTextToDB, deleteFile } from "./db.js";
+import * as mongoose from "mongoose";
+import dotenv from "dotenv";
+dotenv.config(); // to get environment variables
+
+const dbHost = process.env.MONGO_URI || "mongodb://localhost:27017/yankPaste";
+mongoose
+  .connect(dbHost, { useNewUrlParser: true })
+  .then(() => console.log(`Mongodb Connected`))
+  .catch((error) => console.log(error));
 
 const app = express(); // to get POST requests data
 app.use(bodyParser.json({ limit: "50mb" }));
@@ -33,9 +42,9 @@ app.post("/saveText", (req, res) => {
   }
 });
 
-app.get("/getTexts", (req, res) => {
+app.get("/getTexts", async (req, res) => {
   try {
-    const rows = getFiles();
+    const rows = await getTexts();
     res.json({ rows });
   } catch (error) {
     res.status(500);
@@ -44,16 +53,15 @@ app.get("/getTexts", (req, res) => {
   }
 });
 
-app.delete("/delete", (req, res) => {
+app.delete("/delete", async (req, res) => {
   try {
-    console.log(req.data);
     const { unixTime } = req.body;
     if (!unixTime) {
       res.status(400).json({ message: "Key(unixTime) is required" });
       return;
     }
 
-    deleteFile(unixTime);
+    await deleteFile(unixTime);
     res.json({ message: "Item deleted successfully" });
   } catch (error) {
     res.status(500);

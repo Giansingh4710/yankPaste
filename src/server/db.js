@@ -1,55 +1,48 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
+import * as mongoose from "mongoose";
+const Schema = mongoose.Schema;
+const the_schema = new Schema({
+  text: {
+    type: String,
+    required: true,
+  },
+  created_at: {
+    type: String,
+    default: Date.now().toString(),
+  },
+});
+const TheTexts = mongoose.model("texts", the_schema);
 
-const dir_of_texts = "./pasted_text/";
-// Function to save text as a file
 function saveTextToDB(text) {
-  const fileName = Date.now().toString() + ".txt";
-  const theTextFiles = fs
-    .readdirSync(dir_of_texts)
-    .filter((file) => path.extname(file) === ".txt")
-    .sort();
-  const fileCount = theTextFiles.length;
-  if (fileCount >= 10) {
-    deleteFile(path.parse(theTextFiles[0]).name);
-  }
-  try {
-    fs.writeFileSync(path.join(dir_of_texts, fileName), text); // Sync file write
-  } catch (err) {
-    console.error(err);
-  }
+  const newTask = new TheTexts({
+    text: text,
+    created_at: Date.now().toString(),
+  });
+
+  newTask
+    .save()
+    .then((obj) => console.log("Created: ", obj.text.slice(0, 10)))
+    .catch((err) => console.log(err));
+
+  TheTexts.countDocuments().then((count) => {
+    if (count >= 5) {
+      TheTexts.findOneAndDelete({}, { sort: { created_at: 1 } }).then((obj) =>
+        console.log("Deleted: ", obj.text.slice(0, 10)),
+      );
+    }
+  });
 }
 
-function getFiles() {
-  const files = [];
-  try {
-    fs.readdirSync(dir_of_texts)
-      .filter((file) => path.extname(file) === ".txt")
-      .sort()
-      .reverse()
-      .forEach((file) => {
-        files.push({
-          unixTime: path.parse(file).name, // Get the file name without extension
-          text: fs.readFileSync(path.join(dir_of_texts, file), {
-            encoding: "utf8",
-          }),
-        });
-      });
-  } catch (err) {
-    console.error("Error reading files:", err);
-  }
-
-  return files;
+async function getTexts() {
+  const texts = await TheTexts.find();
+  return texts
+    .map((obj) => {
+      return { text: obj.text, unixTime: obj.created_at };
+    })
+    .reverse();
 }
 
-// Function to delete a file based on its name (unixTime)
-function deleteFile(unixTime) {
-  const filePath = path.join(dir_of_texts, unixTime + ".txt");
-  try {
-    fs.unlinkSync(filePath); // Sync file delete
-  } catch (err) {
-    console.error("Error deleting file:", err);
-  }
+async function deleteFile(unixTime) {
+  await TheTexts.findOneAndRemove({ created_at: unixTime });
 }
 
-export { getFiles, saveTextToDB, deleteFile };
+export { getTexts, saveTextToDB, deleteFile };

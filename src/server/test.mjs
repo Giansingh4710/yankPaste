@@ -3,8 +3,6 @@ import {
   ScanCommand,
   GetItemCommand,
 } from '@aws-sdk/client-dynamodb'
-import dotenv from 'dotenv'
-dotenv.config()
 
 const table_name = 'YankPasteTable'
 const dbClient = new DynamoDBClient({
