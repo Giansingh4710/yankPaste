@@ -12,7 +12,13 @@ import {
 } from "react-icons/fa";
 
 // Simple button component
-function ActionButton({ icon: Icon, onClick, variant = "default", ariaLabel }) {
+function ActionButton({
+  icon: Icon,
+  onClick,
+  variant = "default",
+  ariaLabel,
+  disabled,
+}) {
   const variants = {
     default: "bg-blue-600 hover:bg-blue-700",
     danger: "bg-red-600 hover:bg-red-700",
@@ -25,7 +31,10 @@ function ActionButton({ icon: Icon, onClick, variant = "default", ariaLabel }) {
       <button
         onClick={onClick}
         aria-label={ariaLabel}
-        className={`p-3 rounded-full ${variants[variant]} transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+        disabled={disabled}
+        className={`p-3 rounded-full ${variants[variant]} transition-colors
+          focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+          ${disabled ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"}`}
       >
         <Icon />
       </button>
@@ -53,7 +62,9 @@ function HistoryList({ items, onSelect, activeItemId }) {
 
   return (
     <div className="w-full mb-4 mt-4">
-      <h2 className="text-white text-lg mb-2">Text History: ({items.length})</h2>
+      <h2 className="text-white text-lg mb-2">
+        Text History: ({items.length})
+      </h2>
       <div className="bg-gray-800 rounded-lg shadow p-2 max-h-60 overflow-y-auto">
         {items.map((item, idx) => (
           <div
@@ -81,7 +92,7 @@ function HistoryList({ items, onSelect, activeItemId }) {
 }
 
 // Simplified file list
-function FileList({ files }) {
+function FileList({ files, isUploading }) {
   if (files.length === 0) return null;
 
   return (
@@ -92,6 +103,7 @@ function FileList({ files }) {
           icon={FaUpload}
           onClick={() => document.getElementById("fileUpload").click()}
           ariaLabel="Upload File"
+          disabled={isUploading}
         />
       </div>
       <div className="bg-gray-800 rounded-lg shadow p-2">
@@ -121,6 +133,28 @@ function FileList({ files }) {
   );
 }
 
+// Add this new component near the top of the file
+function Notification({ message, type, onClose }) {
+  const bgColor = {
+    success: "bg-green-600",
+    error: "bg-red-600",
+    info: "bg-blue-600",
+  }[type];
+
+  return (
+    <div
+      className={`fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in`}
+    >
+      <div className="flex items-center gap-2">
+        <span>{message}</span>
+        <button onClick={onClose} className="ml-4 hover:text-gray-200">
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Main App component
 function App() {
   const [text, setText] = useState("");
@@ -129,6 +163,8 @@ function App() {
   const [files, setFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -166,25 +202,21 @@ function App() {
     currItem.current = null;
   }
 
-  async function saveText() {
-    if (!text.trim()) {
+  async function saveText(theText = text) {
+    if (!theText.trim()) {
       alert("No text to save!");
       return;
     }
 
-    if (currItem.current && currItem.current.text === text) {
+    if (currItem.current && currItem.current.text === theText) {
       alert("Text already saved (no changes made)");
-      return;
-    }
-
-    if (!confirm("Are you sure you want to save this text?")) {
       return;
     }
 
     try {
       const res = await axios.post(
         "/saveText",
-        { text },
+        { text: theText },
         {
           headers: { "Content-Type": "application/json" },
         },
@@ -211,6 +243,7 @@ function App() {
     try {
       const clipText = await navigator.clipboard.readText();
       setText(clipText);
+      saveText(clipText);
     } catch (err) {
       console.error("Clipboard error:", err);
       alert("Unable to read from clipboard");
@@ -273,16 +306,33 @@ function App() {
     }
   }
 
+  const showNotification = (message, type = "info") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   async function uploadFile(formData) {
+    setIsUploading(true);
     try {
       const res = await axios.post("/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total,
+          );
+          showNotification(`Uploading: ${percentCompleted}%`, "info");
+        },
       });
 
-      alert(res.data.message);
+      showNotification("File uploaded successfully!", "success");
       loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Error uploading file");
+      const errorMessage =
+        err.response?.data?.message || "Error uploading file";
+      showNotification(errorMessage, "error");
+    } finally {
+      setIsUploading(false);
+      setNotification(null);
     }
   }
 
@@ -293,6 +343,27 @@ function App() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Add notification */}
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
+
+      {/* Update the loading overlay to handle both initial load and upload states */}
+      {(isLoading || isUploading) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-8 rounded-lg text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <p className="text-white">
+              {isUploading ? "Uploading file..." : "Loading..."}
+            </p>
+          </div>
+        </div>
+      )}
+
       {isDragging && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-lg text-center">
@@ -302,73 +373,67 @@ function App() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      ) : (
-        <div className="container mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-white text-center mb-6">
-            Yank Paste
-          </h1>
+      <div className="container mx-auto px-4 py-6">
+        <h1 className="text-2xl font-bold text-white text-center mb-6">
+          Yank Paste
+        </h1>
 
-          <div className="max-w-lg mx-auto">
-            <TextEditor text={text} setText={setText} />
+        <div className="max-w-lg mx-auto">
+          <TextEditor text={text} setText={setText} />
 
-            <div className="flex justify-center gap-3 my-4">
-              <ActionButton
-                icon={FaPaste}
-                onClick={pasteText}
-                ariaLabel="Paste"
-              />
-              <ActionButton
-                icon={FaRegCopy}
-                onClick={copyText}
-                ariaLabel="Copy"
-              />
-              <ActionButton
-                icon={FaSave}
-                onClick={saveText}
-                variant="success"
-                ariaLabel="Save"
-              />
-              <ActionButton
-                icon={FaTimesCircle}
-                onClick={clearText}
-                variant="warning"
-                ariaLabel="Clear"
-              />
-              <ActionButton
-                icon={FaTrash}
-                onClick={deleteText}
-                variant="danger"
-                ariaLabel="Delete"
-              />
-              <div>
-                <input
-                  type="file"
-                  id="fileUpload"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-                <ActionButton
-                  icon={FaUpload}
-                  onClick={() => document.getElementById("fileUpload").click()}
-                  ariaLabel="Upload File"
-                />
-              </div>
-            </div>
-
-            <HistoryList
-              items={list}
-              onSelect={handleSelectHistoryItem}
-              activeItemId={currItem.current?.unixTime}
+          <div className="flex justify-center gap-3 my-4">
+            <ActionButton
+              icon={FaPaste}
+              onClick={pasteText}
+              ariaLabel="Paste"
             />
-
-            <FileList files={files} />
+            <ActionButton
+              icon={FaRegCopy}
+              onClick={copyText}
+              ariaLabel="Copy"
+            />
+            <ActionButton
+              icon={FaSave}
+              onClick={() => saveText(text)}
+              variant="success"
+              ariaLabel="Save"
+            />
+            <ActionButton
+              icon={FaTimesCircle}
+              onClick={clearText}
+              variant="warning"
+              ariaLabel="Clear"
+            />
+            <ActionButton
+              icon={FaTrash}
+              onClick={deleteText}
+              variant="danger"
+              ariaLabel="Delete"
+            />
+            <div>
+              <input
+                type="file"
+                id="fileUpload"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <ActionButton
+                icon={FaUpload}
+                onClick={() => document.getElementById("fileUpload").click()}
+                ariaLabel="Upload File"
+              />
+            </div>
           </div>
+
+          <HistoryList
+            items={list}
+            onSelect={handleSelectHistoryItem}
+            activeItemId={currItem.current?.unixTime}
+          />
+
+          <FileList files={files} isUploading={isUploading} />
         </div>
-      )}
+      </div>
     </div>
   );
 }
