@@ -10,5 +10,5 @@ function exitIfError {
 git pull
 exitIfError "git pull failed"
 
-docker-compose down          # Stop and clean up
-docker-compose up --build    # Combines build and run in one step — rebuilds images only if needed (based on cache and file changes)
+docker compose down
+docker compose up --build -d   # -d = detached mode (runs in background)

@@ -53,9 +53,7 @@ function HistoryList({ items, onSelect, activeItemId }) {
 
   return (
     <div className="w-full mb-4 mt-4">
-      <h2 className="text-white text-lg mb-2">
-        Text History: ({items.length})
-      </h2>
+      <h2 className="text-white text-lg mb-2">Text History: ({items.length})</h2>
       <div className="bg-gray-800 rounded-lg shadow p-2 max-h-60 overflow-y-auto">
         {items.map((item, idx) => (
           <div
@@ -346,6 +344,19 @@ function App() {
                 variant="danger"
                 ariaLabel="Delete"
               />
+              <div>
+                <input
+                  type="file"
+                  id="fileUpload"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <ActionButton
+                  icon={FaUpload}
+                  onClick={() => document.getElementById("fileUpload").click()}
+                  ariaLabel="Upload File"
+                />
+              </div>
             </div>
 
             <HistoryList
@@ -355,12 +366,6 @@ function App() {
             />
 
             <FileList files={files} />
-            <input
-              type="file"
-              id="fileUpload"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
           </div>
         </div>
       )}
