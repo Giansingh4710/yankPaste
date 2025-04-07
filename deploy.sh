@@ -10,9 +10,9 @@ function exitIfError {
 git pull
 exitIfError "git pull failed"
 
+
 docker-compose down          # Stop and clean up
-# docker-compose up --build    # Rebuild and restart
-docker compose up -d
+docker-compose up --build    # Combines build and run in one step — rebuilds images only if needed (based on cache and file changes)
 
 # npm i
 # exitIfError "npm install failed"

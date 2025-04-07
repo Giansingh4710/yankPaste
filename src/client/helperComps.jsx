@@ -10,11 +10,3 @@ export function ButtonLabel({ text, Icon, action }) {
     </div>
   )
 }
-
-export function CenteredDiv({ children }) {
-  return (
-    <div className='flex flex-col justify-center h-screen items-center'>
-      {children}
-    </div>
-  )
-}
