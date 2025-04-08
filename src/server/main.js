@@ -16,24 +16,36 @@ mongoose
   .catch((error) => console.log(error));
 
 const app = express(); // to get POST requests data
-app.use(bodyParser.json({ limit: "50mb" }));
-app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: "10gb" }));
+app.use(express.urlencoded({ limit: "10gb", extended: true }));
 
-const upload = multer({ dest: 'uploads/' });
-const MAX_FILES = 3;
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: function (req, file, cb) {
+    cb(null, file.originalname);
+  },
+});
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10GB
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+  },
+});
 
 const getFiles = async () => {
-  const files = await fs.promises.readdir('uploads/');
+  const files = await fs.promises.readdir("uploads/");
   const fileStats = await Promise.all(
     files.map(async (file) => {
-      const stats = await fs.promises.stat(path.join('uploads/', file));
+      const stats = await fs.promises.stat(path.join("uploads/", file));
       return {
         name: file,
         originalName: file,
         timestamp: stats.mtime.getTime(),
-        size: stats.size
+        size: stats.size,
       };
-    })
+    }),
   );
   return fileStats.sort((a, b) => b.timestamp - a.timestamp);
 };
@@ -92,27 +104,51 @@ app.delete("/delete", async (req, res) => {
   }
 });
 
-app.post("/upload", upload.single('file'), async (req, res) => {
+app.post("/upload", (req, res) => {
+  upload.single("file")(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({
+          message: "File is too large. Maximum size is 10GB",
+        });
+      }
+      return res.status(400).json({ message: err.message });
+    } else if (err) {
+      return res.status(500).json({ message: "Error uploading file" });
+    }
+
+    handleFileUpload(req, res);
+  });
+});
+
+async function handleFileUpload(req, res) {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
     const files = await getFiles();
-    if (files.length > MAX_FILES) {
+
+    if (files.length > 5) {
       const oldestFile = files[files.length - 1];
-      await fs.promises.unlink(path.join('uploads/', oldestFile.name));
+      await fs.promises.unlink(path.join("uploads/", oldestFile.name));
     }
 
-    // Rename file to original name
-    const newPath = path.join('uploads/', req.file.originalname);
-    await fs.promises.rename(req.file.path, newPath);
+    const totalSize =
+      files.reduce((sum, file) => sum + file.size, 0) + req.file.size;
+    const MAX_TOTAL_SIZE = 10 * 1024 * 1024 * 1024; // If over 10GB limit, remove oldest files
+    if (totalSize > MAX_TOTAL_SIZE) {
+      files.map((fileToDelete) => {
+        if (fileToDelete.name !== req.file.filename)
+          fs.promises.unlink(path.join("uploads/", fileToDelete.name));
+      });
+    }
 
     res.json({ message: "File uploaded successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message || "Error uploading file" });
   }
-});
+}
 
 app.get("/files", async (req, res) => {
   try {
@@ -125,10 +161,24 @@ app.get("/files", async (req, res) => {
 
 app.get("/download/:filename", async (req, res) => {
   try {
-    const filePath = path.join('uploads/', req.params.filename);
+    const filePath = path.join("uploads/", req.params.filename);
     res.download(filePath);
   } catch (error) {
-    res.status(500).json({ message: error.message || "Error downloading file" });
+    res
+      .status(500)
+      .json({ message: error.message || "Error downloading file" });
+  }
+});
+
+app.delete("/files/:filename", async (req, res) => {
+  try {
+    const filePath = path.join("uploads/", req.params.filename);
+    await fs.promises.unlink(filePath);
+    res.json({ message: "File deleted successfully" });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message || "Error deleting file"
+    });
   }
 });
 

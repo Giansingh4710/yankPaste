@@ -11,6 +11,9 @@ import {
   FaDownload,
 } from "react-icons/fa";
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10GB
+const MAX_FILE_SIZE_FORMATTED = "10GB";
+
 // Simple button component
 function ActionButton({
   icon: Icon,
@@ -91,14 +94,37 @@ function HistoryList({ items, onSelect, activeItemId }) {
   );
 }
 
-// Simplified file list
-function FileList({ files, isUploading }) {
+// Add this helper function
+function formatFileSize(bytes) {
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  if (bytes === 0) return "0 Bytes";
+  const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+  return Math.round(bytes / Math.pow(1024, i), 2) + " " + sizes[i];
+}
+
+function FileList({ files, isUploading, onDelete }) {
+  const [selectedFile, setSelectedFile] = useState(null);
+
   if (files.length === 0) return null;
+
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
   return (
     <div className="w-full mb-4">
+      {selectedFile && (
+        <FilePreview
+          file={selectedFile}
+          onClose={() => setSelectedFile(null)}
+        />
+      )}
+
       <div className="flex justify-between items-center mb-2">
-        <h2 className="text-white text-lg mb-2">Files ({files.length})</h2>
+        <div>
+          <h2 className="text-white text-lg mb-1">Files: ({files.length})</h2>
+          <p className="text-gray-400 text-sm">
+            Total size: {formatFileSize(totalSize)}
+          </p>
+        </div>
         <ActionButton
           icon={FaUpload}
           onClick={() => document.getElementById("fileUpload").click()}
@@ -110,22 +136,32 @@ function FileList({ files, isUploading }) {
         {files.map((file, idx) => (
           <div
             key={idx}
-            className="flex justify-between items-center p-2 mb-1 bg-gray-700 rounded"
+            className="flex justify-between items-center p-2 mb-1 bg-gray-700 rounded hover:bg-gray-600 transition-colors"
           >
-            <div className="truncate max-w-xs">
+            <div
+              className="truncate max-w-xs cursor-pointer"
+              onClick={() => setSelectedFile(file)}
+            >
               <div className="text-white">{file.originalName}</div>
               <div className="text-sm text-gray-300">
-                {Math.round(file.size / 1024)} KB •{" "}
-                {new Date(file.timestamp).toLocaleString()}
+                {formatFileSize(file.size)}
               </div>
             </div>
-            <a
-              href={`/download/${file.name}`}
-              download
-              className="bg-blue-600 hover:bg-blue-700 p-2 rounded"
-            >
-              <FaDownload />
-            </a>
+            <div className="flex gap-2">
+              <a
+                href={`/download/${file.name}`}
+                download
+                className="bg-blue-600 hover:bg-blue-700 p-2 rounded"
+              >
+                <FaDownload />
+              </a>
+              <button
+                onClick={() => onDelete(file)}
+                className="bg-red-600 hover:bg-red-700 p-2 rounded"
+              >
+                <FaTrash />
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -150,6 +186,119 @@ function Notification({ message, type, onClose }) {
         <button onClick={onClose} className="ml-4 hover:text-gray-200">
           ×
         </button>
+      </div>
+    </div>
+  );
+}
+
+// Add this new component for file preview
+function FilePreview({ file, onClose }) {
+  const [content, setContent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    loadFilePreview();
+
+    // Add event listener for escape key
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [file]);
+
+  async function loadFilePreview() {
+    try {
+      setLoading(true);
+      const response = await axios.get(`/download/${file.name}`, {
+        responseType: "blob",
+      });
+      const blob = response.data;
+      const fileType = blob.type;
+
+      // Handle different file types
+      if (fileType.startsWith("image/")) {
+        setContent(
+          <img
+            src={URL.createObjectURL(blob)}
+            alt={file.name}
+            className="max-w-full max-h-[70vh]"
+          />,
+        );
+      } else if (fileType === "application/pdf") {
+        setContent(
+          <iframe
+            src={URL.createObjectURL(blob)}
+            className="w-full h-[70vh]"
+            title={file.name}
+          />,
+        );
+      } else if (
+        fileType.startsWith("text/") ||
+        fileType === "application/json"
+      ) {
+        const text = await blob.text();
+        setContent(
+          <pre className="bg-gray-800 p-4 rounded-lg overflow-auto max-h-[70vh] text-sm">
+            {text}
+          </pre>,
+        );
+      } else if (fileType.startsWith("video/")) {
+        setContent(
+          <video controls className="max-w-full max-h-[70vh]">
+            <source src={URL.createObjectURL(blob)} type={fileType} />
+            Your browser does not support the video tag.
+          </video>,
+        );
+      } else if (fileType.startsWith("audio/")) {
+        setContent(
+          <audio controls className="w-full">
+            <source src={URL.createObjectURL(blob)} type={fileType} />
+            Your browser does not support the audio tag.
+          </audio>,
+        );
+      } else {
+        setContent(
+          <pre className="bg-gray-800 p-4 rounded-lg overflow-auto max-h-[70vh] text-sm">
+            Unsupported file type
+          </pre>,
+        );
+      }
+    } catch (err) {
+      setError("Error loading file preview");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div className="bg-gray-900 rounded-lg w-full max-w-4xl p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-white text-lg">{file.name}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            ×
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-[50vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : error ? (
+          <div className="text-red-500 text-center p-4">{error}</div>
+        ) : (
+          content
+        )}
       </div>
     </div>
   );
@@ -277,9 +426,17 @@ function App() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_FILE_SIZE) {
+      showNotification(
+        `File too large. Maximum size is ${MAX_FILE_SIZE_FORMATTED}`,
+        "error",
+      );
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
-    uploadFile(formData);
+    uploadFile(formData, file);
   }
 
   function handleDragOver(e) {
@@ -299,20 +456,30 @@ function App() {
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_FILE_SIZE) {
+      showNotification(
+        `File too large. Maximum size is ${MAX_FILE_SIZE_FORMATTED}`,
+        "error",
+      );
+      return;
+    }
+
     if (confirm(`Do you want to upload "${file.name}"?`)) {
       const formData = new FormData();
       formData.append("file", file);
-      uploadFile(formData);
+      uploadFile(formData, file);
     }
   }
 
   const showNotification = (message, type = "info") => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 5000);
   };
 
-  async function uploadFile(formData) {
+  async function uploadFile(formData, file) {
     setIsUploading(true);
+    const startTime = Date.now();
+
     try {
       const res = await axios.post("/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -320,19 +487,49 @@ function App() {
           const percentCompleted = Math.round(
             (progressEvent.loaded * 100) / progressEvent.total,
           );
-          showNotification(`Uploading: ${percentCompleted}%`, "info");
+          const elapsedTime = (Date.now() - startTime) / 1000;
+          const uploadSpeed = progressEvent.loaded / elapsedTime; // bytes per second
+
+          showNotification(
+            `Uploading ${file.name}: ${percentCompleted}%\n` +
+              `Speed: ${formatFileSize(uploadSpeed)}/s`,
+            "info",
+          );
         },
+        // Increase timeout for large files
+        timeout: 3600000, // 1 hour
       });
 
-      showNotification("File uploaded successfully!", "success");
+      showNotification(`${file.name} uploaded successfully!`, "success");
       loadData();
     } catch (err) {
-      const errorMessage =
-        err.response?.data?.message || "Error uploading file";
+      let errorMessage;
+      if (err.response?.status === 413) {
+        errorMessage = `File too large. Maximum size is ${MAX_FILE_SIZE_FORMATTED}`;
+      } else if (err.code === "ECONNABORTED") {
+        errorMessage = "Upload timed out. Please try again.";
+      } else {
+        errorMessage =
+          err.response?.data?.message || `Error uploading ${file.name}`;
+      }
       showNotification(errorMessage, "error");
     } finally {
       setIsUploading(false);
-      setNotification(null);
+    }
+  }
+
+  async function handleDeleteFile(file) {
+    if (confirm(`Are you sure you want to delete "${file.name}"?`)) {
+      try {
+        await axios.delete(`/files/${file.name}`);
+        showNotification(`${file.name} deleted successfully`, "success");
+        await loadData();
+      } catch (err) {
+        showNotification(
+          err.response?.data?.message || `Error deleting ${file.name}`,
+          "error",
+        );
+      }
     }
   }
 
@@ -420,7 +617,7 @@ function App() {
               <ActionButton
                 icon={FaUpload}
                 onClick={() => document.getElementById("fileUpload").click()}
-                ariaLabel="Upload File"
+                ariaLabel="Upload"
               />
             </div>
           </div>
@@ -431,7 +628,11 @@ function App() {
             activeItemId={currItem.current?.unixTime}
           />
 
-          <FileList files={files} isUploading={isUploading} />
+          <FileList
+            files={files}
+            isUploading={isUploading}
+            onDelete={handleDeleteFile}
+          />
         </div>
       </div>
     </div>
