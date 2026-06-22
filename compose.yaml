@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   yp-database:
-    image: mongo:6
+    image: docker.io/library/mongo:6
     volumes:
       - database:/data/db
     healthcheck:
