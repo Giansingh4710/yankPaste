@@ -10,10 +10,25 @@ import fs from "fs";
 dotenv.config(); // to get environment variables
 
 const dbHost = process.env.MONGO_URI || "mongodb://localhost:27017/yankPaste";
-mongoose
-  .connect(dbHost, { useNewUrlParser: true })
-  .then(() => console.log(`Mongodb Connected`))
-  .catch((error) => console.log(error));
+
+// Retry the connection so the app survives Mongo not being ready yet
+// (e.g. on first `compose up`, before the DB container finishes starting).
+async function connectToDB() {
+  for (;;) {
+    try {
+      await mongoose.connect(dbHost);
+      console.log("Mongodb Connected");
+      return;
+    } catch (error) {
+      console.log(`Mongo connection failed, retrying in 5s: ${error.message}`);
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+}
+connectToDB();
+
+// Ensure the uploads directory exists (it's a mounted volume in production).
+fs.mkdirSync("uploads/", { recursive: true });
 
 const app = express(); // to get POST requests data
 app.use(express.json({ limit: "10gb" }));

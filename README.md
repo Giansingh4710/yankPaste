@@ -122,3 +122,10 @@ Following [this youtube video](https://www.youtube.com/watch?v=bBA2yCnEf68)
             ```
     - 'By adding proper listen directives and ensuring the Nginx configuration is set up correctly for both domains, this should resolve the issue of yankpaste.xyz routing to alumni.run.'
         - ``` sudo certbot --nginx -d yankpaste.xyz -d www.yankpaste.xyz```
+
+### Fix: File uploads failing with "File too large" error
+- **Problem**: Uploading any file (even small ones like 20MB) returns "File too large. Maximum size is 10GB". The app's limit is 10GB but nginx's default `client_max_body_size` is 1MB, blocking uploads before they reach the server.
+- **Solution**: Add `client_max_body_size 10G;` to `/etc/nginx/sites-available/yankpaste.xyz` inside the `server` block(s), then reload:
+    ```
+    sudo nginx -t && sudo systemctl reload nginx
+    ```
