@@ -10,5 +10,5 @@ function exitIfError {
 git pull
 exitIfError "git pull failed"
 
-docker compose down
-docker compose up --build -d   # -d = detached mode (runs in background)
+podman compose down
+podman compose up --build -d   # -d = detached mode (runs in background)

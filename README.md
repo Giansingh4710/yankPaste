@@ -19,19 +19,25 @@ This makes full stack app creating scr/client and scr/server directories
     sudo apt-get install -y nodejs
     ```
 - ```node -v && npm -v``` to see if it is installed
-- ```sudo apt install nginx```
+- ```
+    sudo apt install nginx
+    sudo ufw allow OpenSSH
+    sudo ufw allow 'Nginx HTTP'
+    sudo ufw enable
+      (click y)
+    sudo ufw status  
+      (to check if it is enabled)
+  ```
 - Firewall Stuff (idk)
-    - ```sudo ufw allow OpenSSH```
-    - ```sudo ufw allow 'Nginx HTTP'```
-    - ```sudo ufw enable``` (click y)
-    - ```sudo ufw status``` (to check if it is enabled)
 - At this point you should be able to see the nginx page when you go to the ip address of the server
     - ```curl 54.226.218.23``` (this should work too if done correctly)
 - For Domain Setup
-    - ```sudo mkdir /var/www/yankpaste.xyz```
-    - ```sudo chown -R $USER:$USER /var/www/yankpaste.xyz```
-    - ```sudo vim /etc/nginx/sites-available/yankpaste.xyz```
-        - copy this into the file:
+    - ```
+      sudo mkdir -p /var/www/yankpaste.xyz
+      sudo chown -R $USER:$USER /var/www/yankpaste.xyz
+      sudo vim /etc/nginx/sites-available/yankpaste.xyz
+      ```
+      - copy this into the file:
             ```
             server {
                 server_name yankpaste.xyz www.yankpaste.xyz;
@@ -46,7 +52,7 @@ This makes full stack app creating scr/client and scr/server directories
                 }
             }
             ```
-    - ```sudo ln -s /etc/nginx/sites-available/yankpaste.xyz /etc/nginx/sites-enabled/yankpaste.xyz```
+    - sudo ln -s /etc/nginx/sites-available/yankpaste.xyz /etc/nginx/sites-enabled/yankpaste.xyz
     - 
     ```
     sudo nginx -t
@@ -129,3 +135,87 @@ Following [this youtube video](https://www.youtube.com/watch?v=bBA2yCnEf68)
     ```
     sudo nginx -t && sudo systemctl reload nginx
     ```
+
+# Nginx + Domain Setup Guide
+  - Your server is already running.
+  - Your application is already running on `localhost:3000`.
+  - You have a domain name pointing to your server.
+
+  ## Step 1: Install Nginx and Configure Firewall
+  Run everything below:
+    ```bash
+    sudo apt update && sudo apt upgrade -y
+    sudo apt install -y nginx
+    sudo ufw allow OpenSSH
+    sudo ufw allow 'Nginx HTTP'
+    sudo ufw enable
+    sudo ufw status
+    ```
+  - After this, visit your server IP in a browser:
+    ```text
+    http://YOUR_SERVER_IP
+    ```
+    - You should see the default Nginx page.
+  ## Step 2: Create the Nginx Reverse Proxy
+    Replace `yankpaste.xyz` everywhere with your own domain.
+    ```bash
+    sudo mkdir -p /var/www/yankpaste.xyz
+    sudo chown -R $USER:$USER /var/www/yankpaste.xyz
+
+    sudo tee /etc/nginx/sites-available/yankpaste.xyz > /dev/null << 'EOF'
+    server {
+        server_name yankpaste.xyz www.yankpaste.xyz;
+
+        location / {
+            proxy_pass http://localhost:3000;
+
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade \$http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host \$host;
+            proxy_cache_bypass \$http_upgrade;
+        }
+    }
+    EOF
+
+    sudo ln -sf /etc/nginx/sites-available/yankpaste.xyz /etc/nginx/sites-enabled/yankpaste.xyz
+    sudo rm -f /etc/nginx/sites-enabled/default
+    sudo nginx -t
+    sudo systemctl restart nginx
+    ```
+
+    - At this point, your domain should forward traffic to the application running on port 3000.
+    ---
+  ## Step 3: Enable HTTPS (Recommended)
+    - Make sure your DNS records already point to the server:
+      ```text
+      A     @      YOUR_SERVER_IP
+      A     www    YOUR_SERVER_IP
+      ```
+
+    Then run:
+
+    ```bash
+      sudo apt install -y certbot python3-certbot-nginx
+      sudo certbot --nginx -d yankpaste.xyz -d www.yankpaste.xyz
+    ```
+
+    Choose the option to redirect HTTP traffic to HTTPS.
+    Verify:
+      ```bash
+      sudo nginx -t
+      sudo systemctl reload nginx
+      ```
+
+    Your site should now be available at:
+      ```text
+      https://yankpaste.xyz
+      ```
+    Useful commands:
+      ```bash
+      sudo systemctl status nginx
+      sudo systemctl restart nginx
+      sudo systemctl reload nginx
+      sudo tail -f /var/log/nginx/error.log
+      sudo ufw status
+      ```
